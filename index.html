@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#EDEDED" />
+<title>恋爱模拟器</title>
+<style>
+  :root{
+    --wx-bubble:#95EC69;
+    --wx-green:#07C160;
+    --chat-bg:#EDEDED;
+    --ink:#191919;
+    --muted:#B2B2B2;
+    --nav-bg:#EDEDED;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;
+    background:radial-gradient(1100px 780px at 70% 16%, #2b302d 0%, #18191b 46%, #0f0f11 100%);
+    color:var(--ink);
+    display:flex;align-items:center;justify-content:center;
+    overflow:hidden;
+    transition:opacity .4s ease;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;
+    background:radial-gradient(520px 520px at 50% 48%, rgba(7,193,96,.10), transparent 72%);
+  }
+  body.fade-out{opacity:0;}
+  button{font-family:inherit;}
+
+  .stage{display:flex;flex-direction:column;align-items:center;gap:16px;position:relative;z-index:1;}
+
+  .caption{
+    font-size:10px;letter-spacing:.32em;color:#6b6f6c;text-transform:uppercase;
+    display:flex;align-items:center;gap:10px;user-select:none;
+  }
+  .caption::before,.caption::after{
+    content:"";width:26px;height:1px;background:rgba(255,255,255,.12);
+  }
+
+  /* ---------------- phone ---------------- */
+  .phone{
+    position:relative;
+    height:min(844px, calc(100dvh - 84px));
+    aspect-ratio:390 / 844;
+    max-width:94vw;
+    background:var(--chat-bg);
+    border-radius:46px;
+    box-shadow:
+      0 0 0 10px #191a1c,
+      0 0 0 11.5px #35363a,
+      0 44px 90px -24px rgba(0,0,0,.95),
+      0 0 150px rgba(7,193,96,.08);
+    display:flex;flex-direction:column;
+    overflow:hidden;
+    isolation:isolate;
+  }
+  .island{
+    position:absolute;top:9px;left:50%;transform:translateX(-50%);
+    width:106px;height:26px;border-radius:20px;background:#000;z-index:20;
+    pointer-events:none;
+  }
+  .island::after{
+    content:"";position:absolute;right:11px;top:8.5px;width:9px;height:9px;border-radius:50%;
+    background:radial-gradient(circle at 35% 32%, #1c2a33, #05080a 70%);
+    box-shadow:inset 0 0 0 .5px rgba(120,160,180,.25);
+  }
+
+  /* ---------------- status bar ---------------- */
+  .statusbar{
+    height:44px;flex:none;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 24px 0 28px;
+    background:var(--nav-bg);
+    font-size:14px;font-weight:600;letter-spacing:.2px;
+    color:#000;
+  }
+  .statusbar .sb-right{display:flex;align-items:center;gap:5px;}
+  .statusbar svg{display:block;}
+
+  /* ---------------- nav bar ---------------- */
+  .navbar{
+    height:48px;flex:none;position:relative;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 6px;background:var(--nav-bg);
+    border-bottom:.5px solid rgba(0,0,0,.09);
+    z-index:5;
+  }
+  .nav-side{width:64px;display:flex;align-items:center;height:100%;}
+  .nav-side.right{justify-content:flex-end;}
+  .nav-btn{
+    width:40px;height:40px;border:0;background:transparent;
+    display:flex;align-items:center;justify-content:center;
+    padding:0;color:#181818;cursor:pointer;border-radius:50%;
+  }
+  .nav-btn:active{background:rgba(0,0,0,.05);}
+  .nav-title{
+    position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:flex-start;padding-top:8px;
+    pointer-events:none;
+  }
+  .nav-name{font-size:16px;font-weight:500;line-height:18px;letter-spacing:.2px;}
+  .nav-sub{
+    position:absolute;top:28px;font-size:10px;line-height:1;color:#8d8d8d;
+    opacity:0;transform:translateY(-1px);transition:opacity .18s ease, transform .18s ease;
+    white-space:nowrap;letter-spacing:.2px;
+  }
+  .nav-sub.show{opacity:1;transform:none;}
+
+  /* ---------------- chat ---------------- */
+  .chat{
+    flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;
+    padding:6px 0 20px;
+    scrollbar-width:none;overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+    background:var(--chat-bg);
+  }
+  .chat::-webkit-scrollbar{display:none;}
+
+  .time{
+    text-align:center;font-size:12px;color:#B2B2B2;
+    margin:16px 0 18px;letter-spacing:.3px;
+    animation:fadein .3s ease both;
+  }
+  .sys{
+    text-align:center;font-size:12.5px;line-height:1.6;color:#A2A2A2;
+    margin:10px 44px 20px;
+    animation:fadein .3s ease both;
+  }
+
+  .msg{
+    display:flex;align-items:flex-start;gap:8px;
+    padding:0 12px;margin-bottom:7px;
+    animation:pop .24s cubic-bezier(.2,.8,.3,1) both;
+  }
+  .msg.her{flex-direction:row;}
+  .msg.me{flex-direction:row-reverse;}
+  .msg.switch{margin-top:9px;}
+
+  .avatar{
+    width:40px;height:40px;border-radius:5px;flex:none;overflow:hidden;
+    display:block;user-select:none;
+  }
+  .avatar svg{display:block;width:100%;height:100%;}
+  .avatar.me{
+    display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(155deg,#5a7691 0%,#405c76 60%,#37506a 100%);
+    color:#fff;font-size:14px;font-weight:600;letter-spacing:.5px;
+    box-shadow:inset 0 0 0 .5px rgba(255,255,255,.16);
+  }
+
+  .bubble{
+    position:relative;max-width:calc(100% - 96px);
+    background:#fff;border-radius:6px;
+    padding:9px 12px;
+    font-size:16px;line-height:1.46;color:#191919;
+    word-break:break-word;white-space:pre-wrap;
+  }
+  .msg.me .bubble{background:var(--wx-bubble);}
+  .bubble::before{
+    content:"";position:absolute;top:12px;
+    width:0;height:0;border:6px solid transparent;
+  }
+  .msg.her .bubble::before{left:-11px;border-right-color:#fff;}
+  .msg.me .bubble::before{right:-11px;border-left-color:var(--wx-bubble);}
+
+  .fail{
+    flex:none;width:19px;height:19px;border-radius:50%;
+    background:#FA5151;color:#fff;
+    font-size:13px;font-weight:700;line-height:1;
+    display:flex;align-items:center;justify-content:center;
+    margin-top:11px;margin-right:2px;
+  }
+
+  /* ---------------- composer ---------------- */
+  .composer{
+    flex:none;display:flex;align-items:center;gap:2px;
+    padding:7px 10px calc(7px + env(safe-area-inset-bottom));
+    background:#F7F7F7;
+    border-top:.5px solid #D6D6D6;
+    position:relative;z-index:6;
+  }
+  .icon-btn{
+    flex:none;width:34px;height:34px;border:0;background:transparent;padding:0;
+    display:flex;align-items:center;justify-content:center;
+    color:#2b2b2b;cursor:pointer;border-radius:50%;
+  }
+  .icon-btn:active{opacity:.45;}
+  .input-wrap{flex:1;min-width:0;margin:0 3px;display:flex;}
+  #input{
+    width:100%;height:36px;border:0;border-radius:4px;
+    background:#fff;padding:0 10px;
+    font-size:15px;font-family:inherit;color:#191919;
+    outline:none;caret-color:var(--wx-green);
+  }
+  #input::placeholder{color:#B2B2B2;}
+  #input:disabled{background:#F0F0F0;color:#B2B2B2;}
+  .send{
+    flex:none;height:32px;padding:0 14px;margin-left:4px;
+    border:0;border-radius:4px;background:var(--wx-green);
+    color:#fff;font-size:14px;letter-spacing:.5px;cursor:pointer;
+  }
+  .send:active{background:#06AD56;}
+  [hidden]{display:none !important;}
+
+  /* ---------------- ending ---------------- */
+  .ending{
+    position:fixed;inset:0;z-index:100;
+    display:flex;align-items:flex-start;justify-content:center;
+    background:rgba(8,8,10,.86);
+    -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+    opacity:0;pointer-events:none;
+    transition:opacity .9s ease;
+    padding:24px;
+    overflow-y:auto;
+  }
+  .ending.show{opacity:1;pointer-events:auto;}
+  .end-card{
+    width:min(440px,90vw);text-align:center;color:#f2f2f2;
+    margin:auto 0;padding:20px 0;
+    transform:translateY(14px);transition:transform 1s cubic-bezier(.2,.7,.3,1);
+  }
+  .ending.show .end-card{transform:none;}
+  .end-kicker{
+    font-size:10px;letter-spacing:.5em;color:#7e7f84;margin-bottom:18px;
+    padding-left:.5em;
+  }
+  .end-title{
+    font-size:clamp(48px,9vw,68px);font-weight:200;letter-spacing:.22em;
+    line-height:1;margin:0;padding-left:.22em;color:#fff;
+  }
+  .end-rule{width:34px;height:1px;background:rgba(255,255,255,.22);margin:30px auto 0;}
+  .end-stats{display:flex;justify-content:center;margin:28px 0 0;padding:0;}
+  .end-stats > div{padding:0 34px;border-left:1px solid rgba(255,255,255,.11);}
+  .end-stats > div:first-child{border-left:0;}
+  .end-stats dt{font-size:10px;letter-spacing:.22em;color:#85868b;margin:0 0 9px;}
+  .end-stats dd{
+    margin:0;font-size:30px;font-weight:300;color:#fff;
+    font-variant-numeric:tabular-nums;line-height:1;
+  }
+  .end-quote{
+    margin:34px 0 0;font-family:"Songti SC","STSong","SimSun",Georgia,serif;
+    font-size:16px;letter-spacing:.08em;color:#c9c9ce;
+  }
+  .end-btn{
+    margin-top:36px;padding:11px 34px;
+    background:transparent;color:#e9e9ea;
+    border:1px solid rgba(255,255,255,.26);border-radius:999px;
+    font-size:13px;letter-spacing:.24em;cursor:pointer;
+    transition:background .25s ease,border-color .25s ease;
+  }
+  .end-btn:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.45);}
+  .end-btn:active{background:rgba(255,255,255,.12);}
+  .end-note{font-size:11px;letter-spacing:.1em;color:#65666b;margin:18px 0 0;}
+
+  @keyframes pop{
+    from{opacity:0;transform:translateY(7px) scale(.985);}
+    to{opacity:1;transform:none;}
+  }
+  @keyframes fadein{from{opacity:0;}to{opacity:1;}}
+
+  @media (max-width:640px), (max-height:560px){
+    body{display:block;background:var(--chat-bg);}
+    body::before{display:none;}
+    .stage{display:block;height:100dvh;width:100vw;}
+    .caption{display:none;}
+    .phone{
+      width:100vw;height:100dvh;max-width:none;
+      border-radius:0;box-shadow:none;aspect-ratio:auto;
+    }
+    .island{display:none;}
+    .statusbar{height:calc(32px + env(safe-area-inset-top));padding-top:env(safe-area-inset-top);}
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="phone" id="phone">
+    <div class="island" aria-hidden="true"></div>
+
+    <div class="statusbar" aria-hidden="true">
+      <span id="sbTime">21:14</span>
+      <span class="sb-right">
+        <svg width="18" height="12" viewBox="0 0 18 12" fill="#000"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+        <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round"><path d="M1.6 4.3a10 10 0 0 1 12.8 0"/><path d="M4.2 7a6.4 6.4 0 0 1 7.6 0"/><path d="M6.6 9.5a3 3 0 0 1 2.8 0"/><circle cx="8" cy="11.1" r=".85" fill="#000" stroke="none"/></svg>
+        <svg width="25" height="12" viewBox="0 0 25 12"><rect x=".6" y=".6" width="21" height="10.8" rx="3" fill="none" stroke="#000" stroke-opacity=".38"/><rect x="2.2" y="2.2" width="15" height="7.6" rx="1.6" fill="#000"/><path d="M23 4.2v3.6c.9-.3 1.4-.9 1.4-1.8s-.5-1.5-1.4-1.8z" fill="#000" fill-opacity=".4"/></svg>
+      </span>
+    </div>
+
+    <header class="navbar">
+      <div class="nav-side">
+        <button class="nav-btn" aria-label="返回">
+          <svg width="12" height="20" viewBox="0 0 12 20"><path d="M10 1 2 10l8 9" fill="none" stroke="#191919" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <div class="nav-title">
+        <span class="nav-name">天黑黑</span>
+        <span class="nav-sub" id="navSub">对方正在输入…</span>
+      </div>
+      <div class="nav-side right">
+        <button class="nav-btn" aria-label="更多">
+          <svg width="22" height="6" viewBox="0 0 22 6" fill="#191919"><circle cx="3" cy="3" r="1.8"/><circle cx="11" cy="3" r="1.8"/><circle cx="19" cy="3" r="1.8"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="chat" id="chat" aria-live="polite"></main>
+
+    <footer class="composer">
+      <button class="icon-btn" aria-label="语音">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="9" y="2.8" width="6" height="11" rx="3"/><path d="M5.4 11.3a6.6 6.6 0 0 0 13.2 0M12 17.9v3.2"/></svg>
+      </button>
+      <div class="input-wrap">
+        <input id="input" type="text" placeholder="发消息" maxlength="200" autocomplete="off" autocapitalize="off" spellcheck="false" />
+      </div>
+      <button class="icon-btn" aria-label="表情">
+        <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><circle cx="8.7" cy="9.7" r=".9" fill="currentColor" stroke="none"/><circle cx="15.3" cy="9.7" r=".9" fill="currentColor" stroke="none"/><path d="M8.3 14.1c.9 1.3 2.2 2 3.7 2s2.8-.7 3.7-2" stroke-linecap="round"/></svg>
+      </button>
+      <button class="icon-btn" id="plusBtn" aria-label="更多功能">
+        <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7.8v8.4M7.8 12h8.4" stroke-linecap="round"/></svg>
+      </button>
+      <button class="send" id="sendBtn" hidden>发送</button>
+    </footer>
+  </div>
+
+  <div class="caption">恋爱模拟器</div>
+</div>
+
+<div class="ending" id="ending" aria-hidden="true">
+  <div class="end-card">
+    <div class="end-kicker">恋爱模拟器</div>
+    <h1 class="end-title">END</h1>
+    <div class="end-rule"></div>
+    <dl class="end-stats">
+      <div><dt>你说的话</dt><dd id="statTotal">0</dd></div>
+      <div><dt>她记住的</dt><dd>0</dd></div>
+    </dl>
+    <p class="end-quote">“不要再来烦我了。”</p>
+    <button class="end-btn" id="restartBtn">重新开始</button>
+    <p class="end-note">结局不会因为你说了什么而改变。</p>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const chat = document.getElementById("chat");
+  const input = document.getElementById("input");
+  const sendBtn = document.getElementById("sendBtn");
+  const plusBtn = document.getElementById("plusBtn");
+  const navSub = document.getElementById("navSub");
+  const ending = document.getElementById("ending");
+  const statTotal = document.getElementById("statTotal");
+  const sbTime = document.getElementById("sbTime");
+
+  const startTime = new Date();
+  let playerCount = 0;
+  let blocked = false;
+  let endingShown = false;
+  let endTimer = null;
+  let rejectNoticeShown = false;
+  let resolveSend = null;
+  let lastKind = null;
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  const CAT_SVG = `
+    <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" fill="#F4E9DC"/>
+      <path d="M9 19 10 6l10 6z" fill="#33302E"/>
+      <path d="M39 19 38 6 28 12z" fill="#33302E"/>
+      <path d="M11.6 15.4 12.2 9.7l4.9 3.3z" fill="#E9A9A9"/>
+      <path d="M36.4 15.4 35.8 9.7l-4.9 3.3z" fill="#E9A9A9"/>
+      <ellipse cx="24" cy="26" rx="15" ry="13" fill="#33302E"/>
+      <ellipse cx="18" cy="24" rx="3.2" ry="3.7" fill="#F2C14E"/>
+      <ellipse cx="30" cy="24" rx="3.2" ry="3.7" fill="#F2C14E"/>
+      <ellipse cx="18" cy="24.4" rx="1.25" ry="2.7" fill="#1C1B1A"/>
+      <ellipse cx="30" cy="24.4" rx="1.25" ry="2.7" fill="#1C1B1A"/>
+      <circle cx="19.1" cy="23.1" r=".95" fill="#fff" opacity=".92"/>
+      <circle cx="31.1" cy="23.1" r=".95" fill="#fff" opacity=".92"/>
+      <path d="M22.4 29h3.2l-1.6 1.8z" fill="#E39A9A"/>
+      <path d="M24 30.8v1.3M24 32.1c-1.1 1.2-2.4 1.3-3.4.5M24 32.1c1.1 1.2 2.4 1.3 3.4.5" fill="none" stroke="#F4E9DC" stroke-width="1.05" stroke-linecap="round"/>
+      <path d="m10 27 5 .8M10 31.2l5-.7M38 27l-5 .8M38 31.2l-5-.7" fill="none" stroke="#F4E9DC" stroke-width=".9" stroke-linecap="round" opacity=".72"/>
+    </svg>`;
+
+  /* ------------------------- helpers ------------------------- */
+
+  const pad = (n) => String(n).padStart(2, "0");
+
+  function fmtClock(d) {
+    const h = d.getHours();
+    const m = pad(d.getMinutes());
+    let pre;
+    if (h < 6) pre = "凌晨";
+    else if (h < 12) pre = "上午";
+    else if (h < 13) pre = "中午";
+    else if (h < 18) pre = "下午";
+    else pre = "晚上";
+    let hh = h % 12;
+    if (hh === 0) hh = 12;
+    return pre + " " + hh + ":" + m;
+  }
+
+  sbTime.textContent = startTime.getHours() + ":" + pad(startTime.getMinutes());
+
+  function scrollToBottom() {
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function addTime(offsetMin) {
+    const d = new Date(startTime.getTime() + offsetMin * 60000);
+    const el = document.createElement("div");
+    el.className = "time";
+    el.textContent = fmtClock(d);
+    chat.appendChild(el);
+    sbTime.textContent = d.getHours() + ":" + pad(d.getMinutes());
+    lastKind = null;
+    scrollToBottom();
+  }
+
+  function addSys(text) {
+    const el = document.createElement("div");
+    el.className = "sys";
+    el.textContent = text;
+    chat.appendChild(el);
+    lastKind = null;
+    scrollToBottom();
+  }
+
+  function addMsg(kind, text, opts) {
+    opts = opts || {};
+    const row = document.createElement("div");
+    row.className = "msg " + kind + (lastKind && lastKind !== kind ? " switch" : "");
+
+    const av = document.createElement("div");
+    av.className = "avatar" + (kind === "me" ? " me" : "");
+    if (kind === "me") av.textContent = "嘉豪";
+    else av.innerHTML = CAT_SVG;
+
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.textContent = text;
+
+    row.appendChild(av);
+    row.appendChild(bubble);
+
+    if (opts.failed) {
+      const fail = document.createElement("div");
+      fail.className = "fail";
+      fail.textContent = "!";
+      fail.setAttribute("aria-label", "发送失败");
+      row.appendChild(fail);
+    }
+
+    chat.appendChild(row);
+    lastKind = kind;
+
+    if (kind === "me") playerCount++;
+    scrollToBottom();
+  }
+
+  function setTyping(on) {
+    navSub.classList.toggle("show", on);
+  }
+
+  async function say(text) {
+    const delay = Math.max(680, Math.min(2300, 480 + text.length * 46));
+    setTyping(true);
+    await sleep(delay);
+    setTyping(false);
+    addMsg("her", text);
+    await sleep(230);
+  }
+
+  /* ------------------------- script ------------------------- */
+
+  const script = [
+    { time: 0 },
+    { sys: "我通过了你的朋友验证请求，现在我们可以开始聊天了" },
+    { her: ["你好呀", "是神人吗？我看你头像上写的嘉豪", "差点以为加错人了"] },
+    { wait: true },
+
+    { her: ["嗯嗯", "我室友把你推给我的，说你这人挺有意思", "她让我主动一点，别老等着别人开口", "其实我不太会开头的"] },
+    { wait: true },
+
+    { her: ["你周末一般都干嘛呀", "我基本就在家躺着，或者下楼喂猫", "单元门口有只橘猫，胖得像个球，天天蹲那儿"] },
+    { wait: true },
+
+    { time: 3 },
+    { her: ["对了，你头像为什么用嘉豪啊", "是本名还是外号", "我猜是外号"] },
+    { wait: true },
+
+    { her: ["我发现个问题", "我好像一直在自说自话", "你别介意啊，我聊天就这样，一开口就收不住"] },
+    { wait: true },
+
+    { her: ["你谈过恋爱吗", "我谈过一次，两年", "分了快一年了吧", "有时候路过以前一起去过的店，还是会愣一下"] },
+    { wait: true },
+
+    { time: 6 },
+    { her: ["不好意思，是不是说太多了", "我室友说我最擅长的就是把天聊死", "她让我别老提以前的事"] },
+    { wait: true },
+
+    { her: ["问你个问题", "你觉得两个人在一起，最重要的是什么", "我前任说是“合适”", "我到现在都没搞懂这两个字是什么意思"] },
+    { wait: true },
+
+    { her: ["算了"] },
+    { time: 9 },
+    {
+      her: [
+        "神人",
+        "有件事我想跟你说清楚",
+        "我加你，其实是我室友一直劝我",
+        "她说你人好，让我别总一个人待着",
+        "我想着，那就试试吧",
+        "可是我发现我做不到",
+        "我还是会想起他",
+        "跟你聊天的时候，我甚至会想，如果是他会怎么回",
+        "这样对你太不公平了",
+        "你人真的挺好的",
+        "你回了那么多，我其实一句都没记住",
+        "对不起",
+        "不要再来烦我了"
+      ]
+    }
+  ];
+
+  async function play() {
+    for (const step of script) {
+      if (step.wait) {
+        await new Promise((resolve) => { resolveSend = resolve; });
+        resolveSend = null;
+        continue;
+      }
+      if (step.time !== undefined) {
+        addTime(step.time);
+        await sleep(420);
+        continue;
+      }
+      if (step.sys) {
+        addSys(step.sys);
+        await sleep(850);
+        continue;
+      }
+      if (step.her) {
+        for (const line of step.her) await say(line);
+        await sleep(260);
+      }
+    }
+
+    blocked = true;
+    endTimer = setTimeout(showEnding, 7000);
+  }
+
+  /* ------------------------- input ------------------------- */
+
+  function updateSendState() {
+    const has = input.value.trim().length > 0;
+    sendBtn.hidden = !has;
+    plusBtn.hidden = has;
+  }
+
+  function submit() {
+    const text = input.value.trim();
+    if (!text || endingShown) return;
+
+    input.value = "";
+    updateSendState();
+
+    if (blocked) {
+      addMsg("me", text, { failed: true });
+      if (!rejectNoticeShown) {
+        rejectNoticeShown = true;
+        addSys("消息已发出，但被对方拒收了。");
+        if (endTimer) clearTimeout(endTimer);
+        endTimer = setTimeout(showEnding, 2600);
+      }
+      return;
+    }
+
+    addMsg("me", text);
+    if (resolveSend) {
+      const resolve = resolveSend;
+      resolveSend = null;
+      resolve();
+    }
+  }
+
+  input.addEventListener("input", updateSendState);
+  input.addEventListener("focus", () => scrollToBottom());
+  sendBtn.addEventListener("click", submit);
+  plusBtn.addEventListener("click", () => input.focus());
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.isComposing && e.keyCode !== 229) {
+      e.preventDefault();
+      submit();
+    }
+  });
+
+  /* ------------------------- ending ------------------------- */
+
+  function showEnding() {
+    if (endingShown) return;
+    endingShown = true;
+    setTyping(false);
+    statTotal.textContent = String(playerCount);
+    endTimer = null;
+    ending.classList.add("show");
+    ending.setAttribute("aria-hidden", "false");
+    input.blur();
+    setTimeout(() => { input.disabled = true; input.placeholder = "对方已拒收你的消息"; }, 700);
+  }
+
+  document.getElementById("restartBtn").addEventListener("click", () => {
+    document.body.classList.add("fade-out");
+    setTimeout(() => location.reload(), 430);
+  });
+
+  /* ------------------------- start ------------------------- */
+
+  play();
+})();
+</script>
+</body>
+</html>
